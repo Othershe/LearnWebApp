@@ -107,7 +107,7 @@ class TextField(Field):
 
 class BooleanField(Field):
     def __init__(self, name=None, primary_key=False, default=False):
-        super().__init__(name, 'text', primary_key, default)
+        super().__init__(name, 'boolean', primary_key, default)
 
 
 # 定义元类ModelMetaclass（所有的元类都继承自type）
@@ -150,18 +150,18 @@ class ModelMetaclass(type):
         if not primary_key:
             raise AttributeError('Primary key not found.')
         for key in mappings.keys():
-            # 删除一个key-value
+            # 删除对象里原来的类属性
             attrs.pop(key)
         # 组织一个属性名集合，类似：[`key1`, 'key2']
         escaped_fields = list(map(lambda f: '`%s`' % f, fields))
-        # 给attrs添加新的key-value
+        # 给attrs添加新的属性（key-value）
         attrs['__mappings__'] = mappings
         attrs['__table__'] = table_name
         attrs['__primary_key__'] = primary_key
         attrs['__fields__'] = fields
         attrs['__select__'] = 'select `%s`, %s from `%s`' % (primary_key, ', '.join(escaped_fields), table_name)
-        attrs['__insert__'] = 'insert into `%s` (%s, %s) values (%s)' % (
-            table_name, primary_key, ', '.join(escaped_fields), create_args_string(len(escaped_fields) + 1))
+        attrs['__insert__'] = 'insert into `%s` (%s,`%s`) values (%s)' % (
+            table_name, ', '.join(escaped_fields), primary_key, create_args_string(len(escaped_fields) + 1))
         attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (
             table_name, ', '.join(list(map(lambda f: '`%s`=?' % f, fields))), primary_key)
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (table_name, primary_key)
@@ -189,7 +189,7 @@ class Model(dict, metaclass=ModelMetaclass):
 
     def get_value_default(self, key):
         value = getattr(self, key, None)
-        if value is not None:
+        if value is None:
             field = self.__mappings__[key]
             if field.default is not None:
                 value = field.default() if callable(field.default) else field.default

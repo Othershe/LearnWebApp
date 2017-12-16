@@ -6,7 +6,7 @@ from webapp.www.models import User
 
 async def save(loop):
     await orm.create_pool(loop=loop, user='root', password='123456', db='awesome')
-    user = User(name='shehuan', email='shehuan@163.com', passwd='123456', image='about:blank')
+    user = User(name='Othershe', email='othershe@163.com', password='123456', image='about:blank')
     await user.save()
 
 
