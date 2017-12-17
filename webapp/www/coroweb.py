@@ -97,6 +97,7 @@ def has_request_arg(fn):
 # RequestHandler目的就是分析视图函数需要接受的参数
 # 然后取出request中携带的参数，和视图函数中需要接受的参数做对比校验，相当于视图函数的预处理
 # 最终调用视图函数，并传入检验后的参数
+# 初始化执行__init__；当发起请求时执行__call__，最终调用的还是视图函数
 class RequestHandler(object):
     def __init__(self, app, fn):
         self._app = app

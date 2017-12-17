@@ -8,6 +8,7 @@ from datetime import datetime
 from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
 
+from webapp.www import orm
 from webapp.www.coroweb import add_routes
 
 
@@ -19,8 +20,8 @@ def init_jinja2(app, **kw):
         # 自动转义xml/html的特殊字符
         autoescape=kw.get('autoescape', True),
         # 代码块的开始、结束标志
-        block_start_string=kw.get('block_start_string', '{%}'),
-        block_end_string=kw.get('block_end_string', '{%}'),
+        block_start_string=kw.get('block_start_string', '{%'),
+        block_end_string=kw.get('block_end_string', '%}'),
         # 变量的开始、结束标志
         variable_start_string=kw.get('variable_start_string', '{{'),
         variable_end_string=kw.get('variable_end_string', '}}'),
@@ -69,11 +70,14 @@ async def logger_factory(app, handler):
         logging.info('Request: %s %s' % (request.method, request.path))
         return await handler(request)
 
+    return logger
 
-# 处理视图函数返回值，生成response的middleware
+
+# 处理视图函数返回值
 async def response_factory(app, handler):
     async def response(request):
         logging.info('Response handler...')
+        # 会去执行RequestHandler的__call__
         r = await handler(request)
         # StreamResponse是所有Response对象的父类，直接返回
         if isinstance(r, web.StreamResponse):
@@ -125,6 +129,7 @@ async def response_factory(app, handler):
 
 
 async def init(loop):
+    await orm.create_pool(loop=loop, user='root', password='123456', db='awesome')
     app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')

@@ -6,8 +6,10 @@ from webapp.www.models import User
 
 async def save(loop):
     await orm.create_pool(loop=loop, user='root', password='123456', db='awesome')
-    user = User(name='Othershe', email='othershe@163.com', password='123456', image='about:blank')
-    await user.save()
+    # user = User(name='Othershe', email='othershe@163.com', password='123456', image='about:blank')
+    # await user.save()
+    users = await User.find_all()
+    print(users)
 
 
 loop = asyncio.get_event_loop()
