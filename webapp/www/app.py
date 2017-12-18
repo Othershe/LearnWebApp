@@ -9,7 +9,7 @@ from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
 
 from webapp.www import orm
-from webapp.www.coroweb import add_routes
+from webapp.www.coroweb import add_routes, add_static
 
 
 # 初始化jinja2
@@ -73,11 +73,12 @@ async def logger_factory(app, handler):
     return logger
 
 
-# 处理视图函数返回值
+# 处理URL处理函数返回值，构造web.Response对象返回
+# handler就是RequestHandler对象
 async def response_factory(app, handler):
     async def response(request):
         logging.info('Response handler...')
-        # 会去执行RequestHandler的__call__
+        # 会去执行RequestHandler的__call__，拿到response，进一步构造web.Response
         r = await handler(request)
         # StreamResponse是所有Response对象的父类，直接返回
         if isinstance(r, web.StreamResponse):
@@ -108,7 +109,7 @@ async def response_factory(app, handler):
                 return resp
             else:
                 # app['__templating__']获取jinja2中初始化的Environment对象，调用get_template()方法返回Template对象
-                # 调用Template对象的render()方法，传入r渲染模板，返回unicode格式字符串，将其用utf-8编码
+                # 调用Template对象的render()方法，传入r渲染模板，返回unicode格式字符串，将其用utf-8编码，一气呵成，太炫了
                 resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
                 resp.content_type = 'text/html;charset=utf-8'
                 return resp
@@ -133,15 +134,22 @@ async def init(loop):
     app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
-    # add_static(app)
-    # ip = '192.168.1.55'
-    ip = '192.168.31.131'
-    server = await loop.create_server(app.make_handler(), ip, 9000)
+    add_static(app)
+    ip = '192.168.1.55'
+    # ip = '192.168.31.131'
+    server = await loop.create_server(app.make_handler(), ip, 9001)
     logging.info('server started at http://%s:9000' % ip)
     return server
 
 
-if '__main__' == __name__:
+def run_server():
     loop = asyncio.get_event_loop()
     loop.run_until_complete(init(loop))
     loop.run_forever()
+
+
+# 让你写的脚本模块既可以导入到别的模块中用，另外该模块自己也可执行
+# 直接执行app.py时'__main__' == __name__；
+# 但把app.py作为模块导入到别的模块，该条件不成立，不会导致该方法重复执行
+if '__main__' == __name__:
+    run_server()

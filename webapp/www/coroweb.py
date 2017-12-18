@@ -10,7 +10,7 @@ from webapp.www.apis import APIError
 
 # http://blog.csdn.net/jyk920902/article/details/78262416
 
-# 视图函数的装饰器，存储请求方式、URL
+# URL处理函数的装饰器，存储请求方式、URL
 def request(path, *, method):
     def decorator(func):
         @functools.wraps(func)
@@ -24,7 +24,7 @@ def request(path, *, method):
     return decorator
 
 
-# 利用偏函数，得到GET、POST的装饰器
+# 利用偏函数，得到GET、POST类型的装饰器
 get = functools.partial(request, method='GET')
 post = functools.partial(request, method='POST')
 
@@ -94,13 +94,14 @@ def has_request_arg(fn):
     return found
 
 
-# RequestHandler目的就是分析视图函数需要接受的参数
-# 然后取出request中携带的参数，和视图函数中需要接受的参数做对比校验，相当于视图函数的预处理
-# 最终调用视图函数，并传入检验后的参数
-# 初始化执行__init__；当发起请求时执行__call__，最终调用的还是视图函数
+# 初始化RequestHandler时执行__init__，分析URL处理函数需要接受的参数信息，并保存起来
+# 浏览器发起请求后执行__call__，取出request中携带的参数，和初始化时得到的信息检验比对，得到最终的request参数
+# 最后执行URL处理函数，使用最终的request参数
+# 断点后发现调起__call__的地方在response_factory里边
 class RequestHandler(object):
     def __init__(self, app, fn):
         self._app = app
+        # URL处理函数
         self._func = fn
         self._has_request_arg = has_request_arg(fn)
         self._has_var_kw_arg = has_var_kw_arg(fn)
@@ -110,7 +111,7 @@ class RequestHandler(object):
 
     async def __call__(self, request):
         kw = None
-        # 如果视图函数有关键字参数 或者 命名关键字参数 或者 无默认值的命名关键字参数
+        # 如果URL处理函数有关键字参数 或者 命名关键字参数 或者 无默认值的命名关键字参数
         if self._has_var_kw_arg or self._has_named_kw_args or self._required_kw_args:
             # POST请求的情况
             if request.method == 'POST':
@@ -169,7 +170,7 @@ class RequestHandler(object):
         # 记录request参数
         if self._has_request_arg:
             kw['request'] = request
-        # 视图函数有无默认值的命名关键字参数
+        # URL处理数有无默认值的命名关键字参数
         if self._required_kw_args:
             for name in self._required_kw_args:
                 # 但未传入对应参数，则报错
@@ -178,39 +179,39 @@ class RequestHandler(object):
         # 到这里完成了request中参数的检验
         logging.info('call with args: %s' % str(kw))
         try:
-            # 执行视图函数
+            # 执行URL处理函数
             r = await self._func(**kw)
             return r
         except APIError as e:
             return dict(error=e.error, data=e.data, message=e.message)
 
 
-# 注册静态资源
+# 注册静态资源如css、js，这里只要是添加前端框架的资源（放在static目录下）
 def add_static(app):
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
     app.router.add_static('/static/', path)
     logging.info('add static %s => %s' % ('/static/', path))
 
 
-# 注册单个视图函数
+# 注册单个URL处理函数
 def add_route(app, fn):
-    # 视图函数fn的请求方式
+    # URL处理函数fn的请求方式
     method = getattr(fn, '__method__', None)
     # fn的URL
     path = getattr(fn, '__route__', None)
     if path is None or method is None:
         raise ValueError('@get or @post not defined in %s.' % str(fn))
-    # 视图函数不是协程 并且 不是生成器
+    # URL处理函数不是协程 并且 不是生成器
     if not asyncio.iscoroutinefunction(fn) and not inspect.isgeneratorfunction(fn):
-        # 将视图函数转成协程
+        # 将URL处理函数转成协程
         fn = asyncio.coroutine(fn)
     logging.info(
         'add route %s %s => %s(%s)' % (method, path, fn.__name__, ', '.join(inspect.signature(fn).parameters.keys())))
-    # 注册视图函数
+    # 注册URL处理函数
     app.router.add_route(method, path, RequestHandler(app, fn))
 
 
-# 批量注册模块的视图函数
+# 批量注册模块中的URL处理函数
 def add_routes(app, module_name):
     # 从字符串右边开始查找，返回字符下标，找不到返回-1
     n = module_name.rfind('.')
@@ -228,7 +229,7 @@ def add_routes(app, module_name):
         if attr.startswith('_'):
             continue
         fn = getattr(mod, attr)
-        # 如果是我们的视图函数
+        # 如果是我们的URL处理函数
         if callable(fn):
             method = getattr(fn, '__method__', None)
             path = getattr(fn, '__route__', None)
