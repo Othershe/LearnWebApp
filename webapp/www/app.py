@@ -9,6 +9,7 @@ from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
 
 from webapp.www import orm
+from webapp.www.config import configs
 from webapp.www.coroweb import add_routes, add_static
 
 
@@ -130,15 +131,13 @@ async def response_factory(app, handler):
 
 
 async def init(loop):
-    await orm.create_pool(loop=loop, user='root', password='123456', db='awesome')
+    await orm.create_pool(loop=loop, **configs.db)
     app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
     add_static(app)
-    ip = '192.168.1.55'
-    # ip = '192.168.31.131'
-    server = await loop.create_server(app.make_handler(), ip, 9001)
-    logging.info('server started at http://%s:9000' % ip)
+    server = await loop.create_server(app.make_handler(), configs.server.host, configs.server.port)
+    logging.info('server started at http://%s:%s' % (configs.server.host, configs.server.port))
     return server
 
 

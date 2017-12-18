@@ -1,6 +1,6 @@
 # 生产环境的配置参数
 configs = {
-    'db': {
-        'host': 'localhost',
+    'server': {
+        # 'host': '192.168.1.55',
     }
 }

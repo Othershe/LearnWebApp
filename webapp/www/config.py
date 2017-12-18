@@ -51,9 +51,5 @@ def to_dict(d):
     return md
 
 
-def read_configs():
-    """
-    对外调用的读取配置文件方法
-    """
-    configs = merge(config_default.configs, config_override.configs)
-    return to_dict(configs)
+configs = merge(config_default.configs, config_override.configs)
+configs = to_dict(configs)
