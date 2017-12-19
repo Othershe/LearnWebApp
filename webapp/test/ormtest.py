@@ -1,12 +1,13 @@
 import asyncio
 
 from webapp.www import orm
+from webapp.www.config import configs
 from webapp.www.models import User
 
 
 async def save(loop):
-    await orm.create_pool(loop=loop, user='root', password='123456', db='awesome')
-    # user = User(name='Othershe', email='othershe@163.com', password='123456', image='about:blank')
+    await orm.create_pool(loop=loop, **configs.db)
+    # user = User(name='oscar', email='oscar@163.com', password='345678', image='about:blank')
     # await user.save()
     users = await User.find_all()
     print(users)

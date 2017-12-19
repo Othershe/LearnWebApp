@@ -16,7 +16,7 @@ async def index():
 
 
 @get('/main')
-async def main(request):
+def main(request):
     summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
     blogs = [
         Blog(id='1', name='Test Blog', summary=summary, created_at=time.time() - 120),
@@ -27,3 +27,11 @@ async def main(request):
         '__template__': 'blogs.html',
         'blogs': blogs
     }
+
+
+@get('/api/users')
+async def api_get_users():
+    users = await User.find_all(order_by='created_at desc')
+    for u in users:
+        u.password = '******'
+    return dict(users=users)

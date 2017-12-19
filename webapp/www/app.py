@@ -102,7 +102,7 @@ async def response_factory(app, handler):
             template = r.get('__template__')
             if template is None:
                 resp = web.Response(
-                    # dumps将对象转换成JSON串
+                    # dumps将对象转换成JSON串，目前是处理rest api的情况
                     # ensure_ascii默认值为True，代表仅输出ascii字符，所以改为False
                     # default=lambda obj: obj.__dict__，定义dumps()把r的对象转换成JSON串的规则，因为默认不知道如何转换
                     body=json.dumps(r, ensure_ascii=False, default=lambda obj: obj.__dict__).encode('utf-8'))
