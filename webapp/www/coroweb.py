@@ -8,7 +8,7 @@ from aiohttp import web
 from webapp.www.apis import APIError
 
 
-# http://blog.csdn.net/jyk920902/article/details/78262416
+# 参考 http://blog.csdn.net/jyk920902/article/details/78262416
 
 # URL处理函数的装饰器，存储请求方式、URL
 def request(path, *, method):

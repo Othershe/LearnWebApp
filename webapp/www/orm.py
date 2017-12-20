@@ -227,7 +227,7 @@ class Model(dict, metaclass=ModelMetaclass):
     # 根据主键查找
     @classmethod
     async def find(cls, primary_key):
-        rs = await select('%s where `%s`=?' % (cls.__select__, cls.__primary_key), primary_key, 1)
+        rs = await select('%s where `%s`=?' % (cls.__select__, cls.__primary_key__), primary_key, 1)
         if len(rs) == 0:
             return None
         return cls(**rs[0])

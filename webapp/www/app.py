@@ -11,6 +11,7 @@ from jinja2 import Environment, FileSystemLoader
 from webapp.www import orm
 from webapp.www.config import configs
 from webapp.www.coroweb import add_routes, add_static
+from webapp.www.handlers import COOKIE_NAME, cookie2user
 
 
 # 初始化jinja2
@@ -74,6 +75,26 @@ async def logger_factory(app, handler):
     return logger
 
 
+# 解析cookie的middleware，并将登录用户绑定到request对象上，这样，后续的URL处理函数就可以直接拿到登录用户
+async def auth_factory(app, handler):
+    async def auth(request):
+        logging.info('check user: %s %s' % (request.method, request.path))
+        request.__user__ = None
+        # 拿到请求的cookie串
+        cookie_str = request.cookies.get(COOKIE_NAME)
+        if cookie_str:
+            user = await cookie2user(cookie_str)
+            if user:
+                logging.info('set current user: %s' % user.email)
+                # 并将登录用户绑定到request对象上，这样，后续的URL处理函数就可以直接拿到当前登录用户信息
+                request.__user__ = user
+        if request.path.startswith('/manage/') and (request.__user__ is None or not request.__user__.admin):
+            return web.HTTPFound('/signin')
+        return await handler(request)
+
+    return auth
+
+
 # 处理URL处理函数返回值，构造web.Response对象返回
 # handler就是RequestHandler对象
 async def response_factory(app, handler):
@@ -109,6 +130,7 @@ async def response_factory(app, handler):
                 resp.content_type = 'application/json;charset=utf-8'
                 return resp
             else:
+                r['__user__'] = request.__user__
                 # app['__templating__']获取jinja2中初始化的Environment对象，调用get_template()方法返回Template对象
                 # 调用Template对象的render()方法，传入r渲染模板，返回unicode格式字符串，将其用utf-8编码，一气呵成，太炫了
                 resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
@@ -132,7 +154,7 @@ async def response_factory(app, handler):
 
 async def init(loop):
     await orm.create_pool(loop=loop, **configs.db)
-    app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
+    app = web.Application(loop=loop, middlewares=[logger_factory, auth_factory, response_factory])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
     add_static(app)

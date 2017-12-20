@@ -10,5 +10,8 @@ configs = {
     'server': {
         'host': '192.168.31.131',
         'port': '9000'
+    },
+    'session': {
+        'secret': 'Awesome'
     }
 }
