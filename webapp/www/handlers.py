@@ -55,6 +55,15 @@ def login():
     }
 
 
+@get('/logout')
+def logout(request):
+    referer = request.headers.get('Referer')
+    r = web.HTTPFound(referer or '/')
+    r.set_cookie(COOKIE_NAME, '-deleted-', max_age=0, httponly=True)
+    logging.info('user signed out.')
+    return r
+
+
 # 计算加密cookie
 # max_age：cookie过期时间
 def user2cookie(user, max_age):
