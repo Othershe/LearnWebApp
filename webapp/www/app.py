@@ -88,8 +88,9 @@ async def auth_factory(app, handler):
                 logging.info('set current user: %s' % user.email)
                 # 并将登录用户绑定到request对象上，这样，后续的URL处理函数就可以直接拿到当前登录用户信息
                 request.__user__ = user
-        if request.path.startswith('/manage/') and (request.__user__ is None or not request.__user__.admin):
-            return web.HTTPFound('/signin')
+        # 只有登录用户才能创建博客
+        if request.path.startswith('/manage/') and (request.__user__ is None):
+            return web.HTTPFound('/login')
         return await handler(request)
 
     return auth

@@ -4,12 +4,13 @@ import re
 import time
 import json
 
+import markdown2 as markdown2
 from aiohttp import web
 
-from webapp.www.apis import APIValueError, APIError
+from webapp.www.apis import APIValueError, APIError, APIPermissionError
 from webapp.www.config import configs
 from webapp.www.coroweb import get, post
-from webapp.www.models import User, Blog, next_id
+from webapp.www.models import User, Blog, next_id, Comment
 
 COOKIE_NAME = 'awesession'
 _COOKIE_KEY = configs.session.secret
@@ -55,6 +56,7 @@ def login():
     }
 
 
+# 退出登录的api
 @get('/logout')
 def logout(request):
     referer = request.headers.get('Referer')
@@ -62,6 +64,43 @@ def logout(request):
     r.set_cookie(COOKIE_NAME, '-deleted-', max_age=0, httponly=True)
     logging.info('user signed out.')
     return r
+
+
+# 创建博客界面
+@get('/manage/blogs/create')
+def manage_create_blog():
+    return {
+        '__template__': 'manage_blog_edit.html',
+        'id': '',
+        'action': '/api/blogs'
+    }
+
+
+# 根据id查询blog内容
+@get('/blog/{id}')
+async def get_blog(id):
+    blog = await Blog.find(id)
+    comments = await Comment.find_all('blog_id=?', [id], orderBy='created_at desc')
+    for c in comments:
+        c.html_content = text2html(c.content)
+    blog.html_content = markdown2.markdown(blog.content)
+    return {
+        '__template__': 'blog.html',
+        'blog': blog,
+        'comments': comments
+    }
+
+
+def text2html(text):
+    lines = map(lambda s: '<p>%s</p>' % s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'),
+                filter(lambda s: s.strip() != '', text.split('\n')))
+    return ''.join(lines)
+
+
+# 检查是否登录
+def check_admin(request):
+    if not request.__user__:
+        raise APIPermissionError()
 
 
 # 计算加密cookie
@@ -161,3 +200,26 @@ async def authenticate(*, email, password):
     r.content_type = 'application/json'
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     return r
+
+
+# 根据id查找blog的api
+@get('/api/blogs/{id}')
+async def api_get_blog(*, id):
+    blog = await Blog.find(id)
+    return blog
+
+
+# 创建blog的api
+@post('/api/blogs')
+async def api_create_blog(request, *, name, summary, content):
+    check_admin(request)
+    if not name or not name.strip():
+        raise APIValueError('name')
+    if not summary or not summary.strip():
+        raise APIValueError('email')
+    if not content or not content.strip():
+        raise APIValueError('password')
+    blog = Blog(user_id=request.__user__.id, user_name=request.__user__.name, user_image=request.__user__.image,
+                name=name.strip(), summary=summary.strip(), content=content.strip())
+    await blog.save()
+    return blog
