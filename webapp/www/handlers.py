@@ -7,7 +7,7 @@ import json
 import markdown2 as markdown2
 from aiohttp import web
 
-from webapp.www.apis import APIValueError, APIError, APIPermissionError
+from webapp.www.apis import APIValueError, APIError, APIPermissionError, Page
 from webapp.www.config import configs
 from webapp.www.coroweb import get, post
 from webapp.www.models import User, Blog, next_id, Comment
@@ -80,7 +80,7 @@ def manage_create_blog():
 @get('/blog/{id}')
 async def get_blog(id):
     blog = await Blog.find(id)
-    comments = await Comment.find_all('blog_id=?', [id], orderBy='created_at desc')
+    comments = await Comment.find_all('blog_id=?', [id], order_by='created_at desc')
     for c in comments:
         c.html_content = text2html(c.content)
     blog.html_content = markdown2.markdown(blog.content)
@@ -88,6 +88,15 @@ async def get_blog(id):
         '__template__': 'blog.html',
         'blog': blog,
         'comments': comments
+    }
+
+
+# 管理blog
+@get('/manage/blogs')
+def manage_blogs(*, page='1'):
+    return {
+        '__template__': 'manage_blogs.html',
+        'page_index': get_page_index(page)
     }
 
 
@@ -146,6 +155,18 @@ async def cookie2user(cookie_str):
     except Exception as e:
         logging.exception(e)
         return None
+
+
+# 校验分页数据的合法性
+def get_page_index(page_str):
+    p = 1
+    try:
+        p = int(page_str)
+    except ValueError as e:
+        pass
+    if p < 1:
+        p = 1
+    return p
 
 
 # 注册api
@@ -223,3 +244,15 @@ async def api_create_blog(request, *, name, summary, content):
                 name=name.strip(), summary=summary.strip(), content=content.strip())
     await blog.save()
     return blog
+
+
+# 分页查询blog列表的api
+@get('/api/blogs')
+async def api_blogs(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Blog.find_number('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, blogs=())
+    blogs = await Blog.find_all(order_by='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, blogs=blogs)
