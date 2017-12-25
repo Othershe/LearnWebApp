@@ -336,3 +336,10 @@ async def api_blogs(*, page='1'):
         return dict(page=p, blogs=())
     blogs = await Blog.find_all(order_by='created_at desc', limit=(p.offset, p.limit))
     return dict(page=p, blogs=blogs)
+
+
+# 要编辑的blog信息查询api
+@get('/api/blogs/{id}')
+async def api_get_blog(*, id):
+    blog = await Blog.find(id)
+    return blog
