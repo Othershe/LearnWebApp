@@ -7,7 +7,7 @@ import json
 import markdown2 as markdown2
 from aiohttp import web
 
-from webapp.www.apis import APIValueError, APIError, APIPermissionError, Page
+from webapp.www.apis import APIValueError, APIError, APIPermissionError, Page, APIResourceNotFoundError
 from webapp.www.config import configs
 from webapp.www.coroweb import get, post
 from webapp.www.models import User, Blog, next_id, Comment
@@ -66,13 +66,23 @@ def logout(request):
     return r
 
 
-# 创建博客界面
+# 创建blog界面
 @get('/manage/blogs/create')
 def manage_create_blog():
     return {
         '__template__': 'manage_blog_edit.html',
         'id': '',
         'action': '/api/blogs'
+    }
+
+
+# 编辑blog界面
+@get('/manage/blogs/edit')
+def manage_edit_blog(*, id):
+    return {
+        '__template__': 'manage_blog_edit.html',
+        'id': id,
+        'action': '/api/blogs/%s' % id
     }
 
 
@@ -96,6 +106,29 @@ async def get_blog(id):
 def manage_blogs(*, page='1'):
     return {
         '__template__': 'manage_blogs.html',
+        'page_index': get_page_index(page)
+    }
+
+
+# 管理用户界面
+@get('/manage/users')
+def manage_users(*, page='1'):
+    return {
+        '__template__': 'manage_users.html',
+        'page_index': get_page_index(page)
+    }
+
+
+@get('/manage/')
+def manage():
+    return 'redirect:/manage/comments'
+
+
+# 管理评论界面
+@get('/manage/comments')
+def manage_comments(*, page='1'):
+    return {
+        '__template__': 'manage_comments.html',
         'page_index': get_page_index(page)
     }
 
@@ -169,6 +202,60 @@ def get_page_index(page_str):
     return p
 
 
+# 发表评论的api
+@post('/api/blogs/{id}/comments')
+async def api_create_comment(id, request, *, content):
+    user = request.__user__
+    if user is None:
+        raise APIPermissionError('Please signin first.')
+    if not content or not content.strip():
+        raise APIValueError('content')
+    blog = await Blog.find(id)
+    if blog is None:
+        raise APIResourceNotFoundError('Blog')
+    comment = Comment(blog_id=blog.id, user_id=user.id, user_name=user.name, user_image=user.image,
+                      content=content.strip())
+    await comment.save()
+    return comment
+
+
+# 删除评论的api
+@post('/api/comments/{id}/delete')
+async def api_delete_comments(id, request):
+    check_admin(request)
+    c = await Comment.find(id)
+    if c is None:
+        raise APIResourceNotFoundError('Comment')
+    await c.remove()
+    return dict(id=id)
+
+
+# 分页查询评论列表的api
+@get('/api/comments')
+async def api_comments(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Comment.find_number('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, comments=())
+    comments = await Comment.find_all(order_by='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, comments=comments)
+
+
+# 分页查询用户信息的api
+@get('/api/users')
+async def api_get_users(*, page='1'):
+    page_index = get_page_index(page)
+    num = await User.find_number('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, users=())
+    users = await User.find_all(order_by='created_at desc', limit=(p.offset, p.limit))
+    for u in users:
+        u.password = '******'
+    return dict(page=p, users=users)
+
+
 # 注册api
 @post('/api/users')
 async def api_register_user(*, email, name, password):
@@ -221,13 +308,6 @@ async def authenticate(*, email, password):
     r.content_type = 'application/json'
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     return r
-
-
-# 根据id查找blog的api
-@get('/api/blogs/{id}')
-async def api_get_blog(*, id):
-    blog = await Blog.find(id)
-    return blog
 
 
 # 创建blog的api

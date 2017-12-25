@@ -31,7 +31,7 @@ async def create_pool(loop, **kw):
 async def select(sql, args, size=None):
     log(sql, args)
     async with __pool.get() as conn:
-        # 以字典的形式返回查询结果
+        # 以字典的形式返回查询到的结果[{},{},{}...]
         async with conn.cursor(aiomysql.DictCursor) as cur:
             # SQL语句的占位符为?，MySQL的占位符为%s，需要替换
             await cur.execute(sql.replace('?', '%s'), args)
